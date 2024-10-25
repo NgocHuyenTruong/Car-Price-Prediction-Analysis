@@ -1,4 +1,3 @@
-###____Assignment____###
 #Install and load the MASS package and load the Cars93 dataset
 library(MASS)
 data('Cars93')
