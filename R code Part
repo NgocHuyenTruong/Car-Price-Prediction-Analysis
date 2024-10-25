@@ -1,0 +1,207 @@
+###____Assignment____###
+#Install and load the MASS package and load the Cars93 dataset
+library(MASS)
+data('Cars93')
+attach(Cars93)
+View(Cars93)
+
+#Check the structure of the dataset
+str(Cars93)
+
+###Q1:
+#Check which columns have missing value
+colSums(is.na(Cars93))
+# --> Rear.seat.room and Luggage.room have missing values
+#Identify numeric columns
+numeric_cols <- sapply(Cars93, is.numeric)
+#Compute column means only for numeric columns
+mean_val <- colMeans(Cars93[,numeric_cols],na.rm =TRUE)
+#Replace missing values with column means for numeric columns
+for (i in colnames(Cars93)){
+  if (numeric_cols[i]){
+    Cars93[,i][is.na(Cars93[,i])]<- mean_val[i]
+  }
+}
+#Check if any missing value
+any(is.na(Cars93))
+#No more missing value
+
+
+#Check the structure of the dataset
+str(Cars93)
+#The dataset comprises both numeric and non-numeric variables.
+#Focus on the numerical vars
+
+##Regression on numerical variables
+numeric_vars <- sapply(Cars93, is.numeric)
+numeric_data <- Cars93[,numeric_vars]
+ncol(numeric_data)
+
+#Correlation Analysis
+cor(numeric_data)
+#High Correlation between Price and Min.Price, Max.Price, Horsepower
+#High Correlation between (Min.Price & Max.Price), (MPG.highway &MPG.city), - Multicollinearity
+
+###Q2:
+#Fit a linear model with Price as the dependent variable and other variables as explanatory variables
+lm_model_1<- lm(Price~. ,data = numeric_data)
+lm_model_1
+
+summary(lm_model_1)
+#Among the predictors, Min.Price and Max.Price (p_value<0.05) have a significant positive association with Price
+#We can consider EngineSize, Width 
+#p_value associated with the F-statistic < 2.2e-16 
+#--> The model is statistically significant at a very high level of confidence
+#R-squared and Adjusted R-squared = 1 --> Possibility of overfitting
+#--> Need of further validation 
+
+anova(lm_model_1)
+
+#Exclude Min.Price & Max.Price from the linear model 
+#since Price inherently encapsulates the range between Min.Price & Max.Price
+mydata<- numeric_data[ -c(1,3) ]
+lm_model_2<- lm(Price~. ,data = mydata)
+
+summary(lm_model_2)
+anova(lm_model_2)
+###Q4:
+#Among the predictors, Horsepower(positive),Width(negative) and Wheelbase(positive) and (p_value<0.05) have a significant association with Price
+# I also consider EngineSize var because of the large coefficient and from the summary(lm_model_1), and its significant impact on Price in ANOVA test
+
+
+###Q3: Plotting
+library(ggplot2)
+
+ggplot(mydata, aes(x = EngineSize, y = Price)) +
+  geom_point() +
+  geom_smooth(method = "lm")+
+  theme_bw() +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  ggtitle("Price & EngineSize")
+# We can see that there is a postive relation between Price and EngineSize
+
+ggplot(mydata, aes(x = Horsepower, y = Price)) +
+  geom_point() +
+  theme_bw() +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  geom_smooth(method = "lm")+
+  ggtitle("Price & Horsepower")
+#There appears to be  a postive linear relationship between Price and Horsepower
+
+ggplot(mydata, aes(x = Wheelbase, y = Price)) +
+  geom_point() +
+  theme_bw() +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  geom_smooth(method = "lm")+
+  ggtitle("Price & Wheelbase")
+#There is a postive relation between Price and Wheelbase
+
+ggplot(mydata, aes(x = Width, y = Price)) +
+  geom_point() +
+  geom_smooth(method = "lm")+
+  theme_bw() +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  ggtitle("Price & Width")
+
+
+# Residual Analysis
+pred = fitted(lm_model_2) 
+Res = residuals(lm_model_2) 
+
+# Visualizing Actual vs Predicted Values
+ggplot(lm_model_2, aes(x = Price, y = pred)) +
+  geom_point() +
+  theme_bw() +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  ggtitle("Visualizing Actual vs Predicted Values")
+
+# Visualizing the relationship between Residuals and Predictor
+ggplot(lm_model_2, aes(x = pred, y = Res)) +
+  geom_point() +
+  geom_hline(yintercept = 0,color='red') +
+  theme_bw() +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  ggtitle("Visualizing Residuals and Predicted values")
+#Points randomly spread above and below the line so we can conclude that model is linear relationship
+
+#Checking whether the distribution of the Residuals is bell shaped (Normality Test)
+ggplot(lm_model_2, aes(sample=Res))+
+  stat_qq()+
+  stat_qq_line()+
+  theme_bw() +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  ggtitle("qqplot")
+#The qqplot suggests that the central part of the error distribution aligns with a normal distribution. 
+#However, there are deviations in the tails, indicating the presence of potential outliers or a non-normal error distribution. 
+
+###Q5:
+# Checking Multi-collinearity using Variance Inflation Factor 
+#install.packages("car")
+library(car)
+vif(lm_model_2)
+#VIF > 5 indicates multi-collinearity. 
+#Hence, multi-collinearity exists between MPG.city, MGP.highway,EngineSize,Horsepower,Fuel.tank.capacity, Wheelbase,Width and Weight
+
+
+###Q6:
+# Tackling Multi-collinearity
+#Removing highly correlated variable - Stepwise Regression
+#install.packages ("MASS")
+library(MASS) 
+step = stepAIC(lm_model_2, direction = "both")
+summary(step)
+#p_value< 0.05 --> Horsepower, Width, Wheelbase & RPM has significant impact on Price
+
+# Check for multicollinearity in the new model
+vif(step)
+
+#Refit the linear model
+new_model<- lm(formula = Price ~ Horsepower + RPM + Wheelbase + Width, data = mydata)
+# Check for multicollinearity in the new model
+vif(new_model)
+#VIF values <5 indicates no significant multicollinearity 
+#Only Width has VIF = 5.699>5 BUT <10 so it can be acceptable
+
+summary(new_model)
+#New model: y^hat = Price = 0.182*Horsepower -0.003*RPM + 0.650*Wheelbase - 1.645*Width + 54.743
+
+###Q7: Model utility test 
+#Ho: beta1 =beta2= ...= 0
+#H1: At least one beta != 0 whilst p<0.05
+summary(new_model)
+#p_value< 0.05 --> Horsepower, Width, Wheelbase & RPM has significant impact on Price
+anova(new_model)
+#The overall F-statistic (55.03) and its p-value (< 2.2e-16) indicate a statistically significant model.
+#Reject Ho 
+#At least one of the predictor variables in the model has a statistically significant effect on Price
+
+###Q8:
+conf_interval <- confint(new_model, level = 0.99)
+conf_interval
+#99% confidence interval:
+#Intercept [-7.09  116.58]
+#Horsepower   [0.136  0.226]
+#RPM         [-0.0064 0.00078]
+#Wheelbase    [0.29  1.012]
+#Width       [-2.56 -0.73]
